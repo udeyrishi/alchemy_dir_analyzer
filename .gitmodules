@@ -1,0 +1,3 @@
+[submodule "alchemyapi_python"]
+	path = alchemyapi_python
+	url = git@github.com:udeyrishi/alchemyapi_python.git
