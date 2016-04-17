@@ -5,11 +5,23 @@ TEXT_FLAVOUR = 'text'
 USELESS_FIELDS = {'url', 'usage', 'status', 'statusInfo', 'totalTransactions'}
 
 class AlchemyAPIError(Exception):
-    pass
+    def __init__(self, message, response):
+        super(AlchemyAPIError, self).__init__(message)
+        self.response = response
+
+    def get_cause(self):
+        return self.response['statusInfo']
+
+    def __str__(self):
+        return super(AlchemyAPIError, self).__str__() + ' Cause: ' + self.get_cause()
+
+    def __repr__(self):
+        return super(AlchemyAPIError, self).__repr__() + ' Cause: ' + self.get_cause()
 
 class AlchemyFileAnalyzer(object):
-    def __init__(self, api):
-        self.__api = api
+    def __init__(self, api, transaction_limit_callback):
+        self.api = api
+        self.transaction_limit_callback = transaction_limit_callback
 
     def analyze(self, file_name):
         # temp place holder
@@ -17,20 +29,34 @@ class AlchemyFileAnalyzer(object):
         with open(file_name, 'r') as f:
             text = f.read()
 
-        result['entities'] = self.__api_executor(lambda: self.__api.entities(TEXT_FLAVOUR, text, {'sentiment': 1}))
-        result['keywords'] = self.__api_executor(lambda: self.__api.keywords(TEXT_FLAVOUR, text, {'sentiment': 1}))
-        result['concepts'] = self.__api_executor(lambda: self.__api.concepts(TEXT_FLAVOUR, text))
-        result['category'] = self.__api_executor(lambda: self.__api.category(TEXT_FLAVOUR, text))
-        result['doc_sentiment'] = self.__api_executor(lambda: self.__api.sentiment(TEXT_FLAVOUR, text))
+        result['entities'] = self.__api_executor(file_name,
+            lambda: self.api.entities(TEXT_FLAVOUR, text, {'sentiment': 1}))
+        result['keywords'] = self.__api_executor(file_name,
+            lambda: self.api.keywords(TEXT_FLAVOUR, text, {'sentiment': 1}))
+        result['concepts'] = self.__api_executor(file_name,
+            lambda: self.api.concepts(TEXT_FLAVOUR, text))
+        result['category'] = self.__api_executor(file_name,
+            lambda: self.api.category(TEXT_FLAVOUR, text))
+        result['doc_sentiment'] = self.__api_executor(file_name,
+            lambda: self.api.sentiment(TEXT_FLAVOUR, text))
         return result
 
-    def __api_executor(self, api_func):
+    def __api_executor(self, file_name, api_func):
+        while True:
+            try:
+                return self.__error_checking_api_executor(file_name, api_func)
+            except AlchemyAPIError as e:
+                if e.response['statusInfo'] == 'daily-transaction-limit-exceeded':
+                    repeat = self.transaction_limit_callback(self)
+                    if not repeat:
+                        raise
+
+    def __error_checking_api_executor(self, file_name, api_func):
         result = api_func()
         if 'status' in result and result['status'].lower() == 'error':
-            raise AlchemyAPIError('Erroneous response from Alchemy API with status info: ' + result['statusInfo'])
+            raise AlchemyAPIError('Erroneous response when processing file ' + file_name, result)
 
         self.__remove_keys(result, USELESS_FIELDS)
-
         return result
 
     @staticmethod
