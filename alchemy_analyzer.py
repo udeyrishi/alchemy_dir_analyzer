@@ -46,7 +46,8 @@ class AlchemyDirectoryAnalyzer(object):
 
         return file_name.replace(self.__source, destination) + '.json'
 
-    def __make_dirs(self, file):
+    @staticmethod
+    def __make_dirs(file):
         if not os.path.exists(os.path.dirname(file)):
             try:
                 os.makedirs(os.path.dirname(file))
