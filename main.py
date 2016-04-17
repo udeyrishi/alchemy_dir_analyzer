@@ -3,7 +3,8 @@
 from alchemyapi_python.alchemyapi import AlchemyAPI
 from alchemyapi_python.alchemyapi import BadApiKeyError
 from argparse import ArgumentParser
-from alchemy_dir_analyzer import AlchemyDirectoryAnalyzer
+from alchemy_analyzer import AlchemyDirectoryAnalyzer
+from alchemy_analyzer import AlchemyFileAnalyzer
 
 
 def read_api_key(path_to_key):
@@ -25,12 +26,13 @@ def main():
     args = get_args()
     try:
         api = AlchemyAPI(api_key=read_api_key(args.key))
+        file_analyzer = AlchemyFileAnalyzer(api)
     except BadApiKeyError as e:
         print(("The keys file '{0}' should contain proper Alchemy API key in the "
             + "first line. Cause: {1}").format(args.key, str(e)))
         exit(-1)
 
-    AlchemyDirectoryAnalyzer(api=api,
+    AlchemyDirectoryAnalyzer(file_analyzer=file_analyzer,
                             source=args.source,
                             destination=args.destination,
                             recursive=args.recursive).run()
