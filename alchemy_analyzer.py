@@ -1,8 +1,6 @@
 import json
 import os
 
-SKIP_FILES = {'.DS_Store'}
-
 class AlchemyFileAnalyzer(object):
     def __init__(self, api):
         self.__api = api
@@ -22,7 +20,7 @@ class AlchemyDirectoryAnalyzer(object):
     def run(self):
         for root, _, file_names in os.walk(self.__source):
             for file_name in file_names:
-                if file_name in SKIP_FILES:
+                if self.__should_skip_file(file_name):
                     continue
 
                 file_name = os.path.join(root, file_name)
@@ -35,6 +33,11 @@ class AlchemyDirectoryAnalyzer(object):
 
             if not self.__recursive:
                 break
+
+    @staticmethod
+    def __should_skip_file(file_name):
+        # System file
+        return file_name.startswith('.')
 
     def __get_output_file_path(self, file_name):
         if self.__source.endswith(os.path.sep):
