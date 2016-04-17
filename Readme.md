@@ -15,6 +15,8 @@ $ git submodule init && git submodule update
 
 ###Usage
 ```
+$ chmod +x ./main.py
+
 $ ./main.py -h
 usage: main.py [-h] [-r] [-v] key source destination
 
