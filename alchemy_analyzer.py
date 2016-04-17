@@ -1,13 +1,43 @@
 import json
 import os
 
+TEXT_FLAVOUR = 'text'
+USELESS_FIELDS = {'url', 'usage', 'status', 'statusInfo', 'totalTransactions'}
+
+class AlchemyAPIError(Exception):
+    pass
+
 class AlchemyFileAnalyzer(object):
     def __init__(self, api):
         self.__api = api
 
     def analyze(self, file_name):
         # temp place holder
-        return {'file': file_name}
+        result = dict()
+        with open(file_name, 'r') as f:
+            text = f.read()
+
+        result['entities'] = self.__api_executor(lambda: self.__api.entities(TEXT_FLAVOUR, text, {'sentiment': 1}))
+        result['keywords'] = self.__api_executor(lambda: self.__api.keywords(TEXT_FLAVOUR, text, {'sentiment': 1}))
+        result['concepts'] = self.__api_executor(lambda: self.__api.concepts(TEXT_FLAVOUR, text))
+        result['category'] = self.__api_executor(lambda: self.__api.category(TEXT_FLAVOUR, text))
+        result['doc_sentiment'] = self.__api_executor(lambda: self.__api.sentiment(TEXT_FLAVOUR, text))
+        return result
+
+    def __api_executor(self, api_func):
+        result = api_func()
+        if 'status' in result and result['status'].lower() == 'error':
+            raise AlchemyAPIError('Erroneous response from Alchemy API with status info: ' + result['statusInfo'])
+
+        self.__remove_keys(result, USELESS_FIELDS)
+
+        return result
+
+    @staticmethod
+    def __remove_keys(dictionary, keys):
+        for k in keys:
+            if k in dictionary:
+                dictionary.pop(k)
 
 
 class AlchemyDirectoryAnalyzer(object):
@@ -29,7 +59,7 @@ class AlchemyDirectoryAnalyzer(object):
                 self.__make_dirs(output_file)
 
                 with open(output_file, 'w') as f:
-                    json.dump(nlp_result, f)
+                    json.dump(nlp_result, f, sort_keys=True, indent=4)
 
             if not self.__recursive:
                 break
