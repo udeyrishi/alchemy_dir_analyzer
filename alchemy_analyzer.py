@@ -1,5 +1,6 @@
 import json
 import os
+import logging
 
 TEXT_FLAVOUR = 'text'
 USELESS_FIELDS = {'url', 'usage', 'status', 'statusInfo', 'totalTransactions'}
@@ -54,7 +55,7 @@ class AlchemyFileAnalyzer(object):
     def __error_checking_api_executor(self, file_name, api_func):
         result = api_func()
         if 'status' in result and result['status'].lower() == 'error':
-            raise AlchemyAPIError('Erroneous response when processing file ' + file_name, result)
+            raise AlchemyAPIError('Erroneous response when processing file ' + file_name + '.', result)
 
         self.__remove_keys(result, USELESS_FIELDS)
         return result
@@ -67,11 +68,12 @@ class AlchemyFileAnalyzer(object):
 
 
 class AlchemyDirectoryAnalyzer(object):
-    def __init__(self, file_analyzer, source, destination, recursive):
+    def __init__(self, file_analyzer, source, destination, recursive, logger):
         self.__file_analyzer = file_analyzer
         self.__source = source
         self.__destination = destination
         self.__recursive = recursive
+        self.__logger = logger
 
     def run(self):
         for root, _, file_names in os.walk(self.__source):
@@ -80,8 +82,12 @@ class AlchemyDirectoryAnalyzer(object):
                     continue
 
                 file_name = os.path.join(root, file_name)
-                nlp_result = self.__file_analyzer.analyze(file_name)
                 output_file = self.__get_output_file_path(file_name)
+
+                if self.__logger is not None:
+                    self.__logger.debug('Processing file: {0} >> Output file: {1}'.format(file_name, output_file))
+
+                nlp_result = self.__file_analyzer.analyze(file_name)
                 self.__make_dirs(output_file)
 
                 with open(output_file, 'w') as f:
